@@ -1,0 +1,59 @@
+version: '3.8'
+services:
+  postgres:
+    image: postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ZoyaLilly
+      POSTGRES_DB: matest
+    ports:
+      - "5432:5432"
+    networks:
+      - lo-test-network
+    restart: always
+
+  flask:
+    build:
+      context: .
+      dockerfile: dockerfile
+    environment:
+      DATABASE_URL: postgresql://postgres:ZoyaLilly@postgres:5432/matest
+    depends_on:
+      - postgres
+    ports:
+      - "5000:5000"
+    networks:
+      - lo-test-network
+    restart: always
+
+  nginx:
+    image: nginx:latest
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/conf.d:/etc/nginx/conf.d
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - flask
+    networks:
+      - lo-test-network
+    restart: always
+
+  certbot:
+    image: certbot/certbot
+    volumes:
+      - ./certbot/www:/var/www/certbot
+      - ./certbot/conf:/etc/letsencrypt
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do sleep 6h & wait $${!}; certbot renew; done;'"
+    command: certonly --webroot --webroot-path=/var/www/certbot --email minhaala@gmail.com --agree-tos --no-eff-email -d salazarthorn.tplinkdns.com
+    restart: always
+
+volumes:
+  postgres-data:
+
+networks:
+  lo-test-network:
+    driver: bridge
